@@ -176,13 +176,13 @@ execution.
 <div align="justify">
 
 - Optuna TPE, 30 trials, maximizing mean fold competition Sharpe.
-  Search space: $\text{learning\_rate} \in [0.01, 0.1]$ (log),
-  $\text{num\_leaves} \in [15, 127]$ (log),
-  $\text{min\_child\_samples} \in [50, 1000]$ (log),
-  $\text{feature\_fraction} \in [0.5, 1.0]$,
-  $\text{bagging\_fraction} \in [0.5, 1.0]$,
-  $\text{reg\_alpha}, \text{reg\_lambda} \in [10^{-5}, 1.0]$ (log).
-  $n_{\text{estimators}} = 2000$ with 50-round early stopping (effective tree
+  Search space: `learning_rate` $\in [0.01,\, 0.1]$ (log),
+  `num_leaves` $\in [15,\, 127]$ (log),
+  `min_child_samples` $\in [50,\, 1000]$ (log),
+  `feature_fraction` $\in [0.5,\, 1.0]$,
+  `bagging_fraction` $\in [0.5,\, 1.0]$,
+  `reg_alpha`, `reg_lambda` $\in [10^{-5},\, 1.0]$ (log).
+  `n_estimators = 2000` with 50-round early stopping (effective tree
   count chosen per-fold).
 - Result: **fold-mean Sharpe = +0.5148** (σ across folds = 0.172).
 - Best params: `learning_rate=0.029`, `num_leaves=18`, `min_child_samples=218`,
@@ -240,7 +240,7 @@ distribution while preserving the directional ordering:
 </div>
 
 $$
-\text{confidence}_i \;=\; 2 \cdot \text{rank\_pct}_{\text{day}(i)}(\hat{y}_i) \;-\; 1
+c_i \;=\; 2 \cdot r_i \;-\; 1, \qquad r_i \;=\; \text{within-day rank percentile of } \hat{y}_i
 $$
 
 <div align="justify">
@@ -498,7 +498,7 @@ In rough priority by likely magnitude of improvement:
    $\tau \approx 3$-day exponential window before joining. Most likely to
    recover real news signal that same-day aggregation misses.
 2. **Detrend price features.** Replace raw `close`/`open` with
-   $\text{close} \,/\, \text{rolling\_mean}(\text{close}, 252)$ to neutralize cross-year drift.
+   `close / rolling_mean(close, 252)` to neutralize cross-year drift.
 3. **Re-tune over rank-augmented feature set.** Step-7's rank features
    may help if hyperparameters are jointly optimized with them.
 4. **Ensemble with CatBoost.** Mean of LightGBM + CatBoost predictions,
