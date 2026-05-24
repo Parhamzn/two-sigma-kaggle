@@ -1,13 +1,23 @@
 # Stock Market Prediction — Two Sigma Kaggle dataset
 
+<div align="justify">
+
 Tackling the Two Sigma / Intrinio Kaggle challenge offline using the
 actual competition target and metric, with purged-embargoed walk-forward
 CV and a single-shot held-out test year.
 
+</div>
+
 ## TL;DR
 
-> **2016 held-out OOS competition Sharpe: +0.518**
-> (LightGBM regression with tuned hyperparameters and rank-confidence post-mapping)
+<div align="center">
+
+**2016 held-out OOS competition Sharpe: +0.518**
+*(LightGBM regression with tuned hyperparameters and rank-confidence post-mapping)*
+
+</div>
+
+<div align="justify">
 
 - Beats the locked-in **+0.50** success criterion.
 - Beats the long-only 2016 baseline (**+0.18**) by **+0.34**.
@@ -15,9 +25,13 @@ CV and a single-shot held-out test year.
   folds 0.17), measured on five validation years that were never the test set.
 - News features did not add OOS lift; the production model uses market data only.
 
+</div>
+
 ---
 
 ## 1. Context
+
+<div align="justify">
 
 **Two Sigma: Using News to Predict Stock Movements** ran on Kaggle in
 2018–2019. Two datasets from Intrinio:
@@ -39,22 +53,38 @@ single-shot held-out test year.
 market-residualized open-to-open return (a continuous real number).
 
 **Metric (the actual competition scoring rule)**:
-$\;\text{score} = \overline{x_t} / \sigma(x_t)$ where
-$x_t = \sum_i \hat{y}_{t,i} \cdot r_{t,i} \cdot u_{t,i}$.
+
+</div>
+
+$$
+\text{score} \;=\; \frac{\overline{x_t}}{\sigma(x_t)} \qquad \text{where} \qquad x_t \;=\; \sum_{i} \hat{y}_{t,i} \cdot r_{t,i} \cdot u_{t,i}
+$$
+
+<div align="justify">
+
 Predictions are confidence values in $[-1, +1]$, weighted by realized
 return $r$ and universe-membership $u$, summed across assets per day to
 form a daily PnL, then scored as a Sharpe-like ratio over days. **Not
 accuracy, not F1.** The metric rewards both directional correctness AND
 confident sizing, and penalizes day-to-day PnL volatility.
 
+</div>
+
 ---
 
 ## 2. Approach
 
+<div align="justify">
+
 Seven steps, each with explicit success criteria committed before
 execution.
 
+</div>
+
 ### Step 1 — Convert raw CSVs to Parquet
+
+<div align="justify">
+
 - `market_train_full.csv` (1.1 GB, 4,072,956 rows, 17 cols) → `market.parquet` (0.39 GB)
 - `news_train_from2013.csv` (4.7 GB, 9,328,750 rows, 36 cols) → `news.parquet` (1.10 GB)
 - Streaming pyarrow CSV reader with explicit dtypes; any silent
@@ -62,7 +92,12 @@ execution.
 - Roundtrip verified: row counts match exactly, time ranges match the
   data spec (market 2007-02-01 → 2016-12-30, news 2007-01-01 → 2016-12-30).
 
+</div>
+
 ### Step 2 — Implement the competition Sharpe metric
+
+<div align="justify">
+
 - `pipeline/metric.py`
 - `competition_score(confidence, returns, universe, day) -> float`
 - 8 synthetic unit tests: zero predictor → 0, perfect foresight → +9.25,
@@ -73,7 +108,12 @@ execution.
   the 2010+ sample. Establishes a floor — the target is well-residualized
   and offers no easy directional alpha.
 
+</div>
+
 ### Step 3 — Market-only baseline
+
+<div align="justify">
+
 - `pipeline/03_baseline.py`
 - Per-asset rolling features added on top of the 8 precomputed return
   columns: volatility (5/10/20/60-day std of 1-day returns), short-window
@@ -86,10 +126,15 @@ execution.
 - Long-only on the same set: −0.2682. Edge over long-only: +0.84.
 - Sign hit rate 54.6%, Pearson(pred, target) = +0.125.
 
+</div>
+
 ### Step 4 — Add news features
+
+<div align="justify">
+
 - `pipeline/aggregate_news.py` + `merge_news_features` in `features.py`
-- News-date assignment: news with timestamp < 22:00 UTC of day t →
-  associated with trading day t; news ≥ 22:00 UTC → day t+1. Implemented
+- News-date assignment: news with timestamp < 22:00 UTC of day $t$ →
+  associated with trading day $t$; news ≥ 22:00 UTC → day $t+1$. Implemented
   as `news_date = (time + 2h).normalize().date()`.
 - `assetCodes` parsed and exploded (mean 2.0 codes per article); inner
   join to tradeable codes drops ~60% of mentions (foreign listings).
@@ -104,24 +149,40 @@ execution.
   positive but small. Carried forward through tuning; final
   consideration deferred to step 6.
 
+</div>
+
 ### Step 5 — Hyperparameter tuning via walk-forward CV
+
+<div align="justify">
+
 - `pipeline/05_tune.py`
 - 5 expanding-window walk-forward folds across 2010–2015, each with an
   18-day embargo between train end and val start:
 
-  | Fold | Train | Val |
-  |---|---|---|
-  | 1 | 2010 | 2011-01-18 → 2011-12-31 |
-  | 2 | 2010–2011 | 2012-01-18 → 2012-12-31 |
-  | 3 | 2010–2012 | 2013-01-18 → 2013-12-31 |
-  | 4 | 2010–2013 | 2014-01-18 → 2014-12-31 |
-  | 5 | 2010–2014 | 2015-01-18 → 2015-12-31 |
+</div>
+
+<div align="center">
+
+| Fold | Train | Val |
+|:---:|:---:|:---:|
+| 1 | 2010 | 2011-01-18 → 2011-12-31 |
+| 2 | 2010–2011 | 2012-01-18 → 2012-12-31 |
+| 3 | 2010–2012 | 2013-01-18 → 2013-12-31 |
+| 4 | 2010–2013 | 2014-01-18 → 2014-12-31 |
+| 5 | 2010–2014 | 2015-01-18 → 2015-12-31 |
+
+</div>
+
+<div align="justify">
 
 - Optuna TPE, 30 trials, maximizing mean fold competition Sharpe.
-  Search space: `learning_rate ∈ [0.01, 0.1]` log, `num_leaves ∈ [15, 127]` log,
-  `min_child_samples ∈ [50, 1000]` log, `feature_fraction ∈ [0.5, 1.0]`,
-  `bagging_fraction ∈ [0.5, 1.0]`, `reg_alpha`, `reg_lambda` ∈ [1e-5, 1.0] log.
-  `n_estimators = 2000` with 50-round early stopping (effective tree
+  Search space: $\text{learning\_rate} \in [0.01, 0.1]$ (log),
+  $\text{num\_leaves} \in [15, 127]$ (log),
+  $\text{min\_child\_samples} \in [50, 1000]$ (log),
+  $\text{feature\_fraction} \in [0.5, 1.0]$,
+  $\text{bagging\_fraction} \in [0.5, 1.0]$,
+  $\text{reg\_alpha}, \text{reg\_lambda} \in [10^{-5}, 1.0]$ (log).
+  $n_{\text{estimators}} = 2000$ with 50-round early stopping (effective tree
   count chosen per-fold).
 - Result: **fold-mean Sharpe = +0.5148** (σ across folds = 0.172).
 - Best params: `learning_rate=0.029`, `num_leaves=18`, `min_child_samples=218`,
@@ -133,16 +194,29 @@ execution.
   a single year (2010) leaves the model thin and 2011 was a regime-shift
   year (US debt downgrade, Eurozone crisis).
 
+</div>
+
 ### Step 6 — Held-out 2016 evaluation (single shot)
+
+<div align="justify">
+
 - `pipeline/06_test.py`
 - Train on 2010–2014, early-stop on 2015 val, evaluate on 2016 test
   (from 2016-01-19, 18-day embargo). One model, one shot, no peeking.
 - Ablation: market-only at the same tuned hyperparameters.
 
-  | | 2015 val (sanity) | **2016 OOS** | Long-only 2016 |
-  |---|---|---|---|
-  | Market + news | +0.5693 | **+0.3928** | +0.1822 |
-  | Market-only | +0.5786 | +0.3857 | +0.1822 |
+</div>
+
+<div align="center">
+
+|                | 2015 val (sanity) | **2016 OOS** | Long-only 2016 |
+|:---|:---:|:---:|:---:|
+| Market + news  | +0.5693 | **+0.3928** | +0.1822 |
+| Market-only    | +0.5786 | +0.3857 | +0.1822 |
+
+</div>
+
+<div align="justify">
 
 - 2015 sanity check reproduces step-5 fold 5 (+0.5693) exactly.
 - 2016 lift over long-only: +0.21. News adds +0.007 OOS.
@@ -152,21 +226,41 @@ execution.
 - The 2016 result lands within the CV-implied 95% CI of [+0.36, +0.66],
   consistent with the CV estimate on the unlucky side.
 
-### Step 7 — Rank-confidence remap
-- `pipeline/07_ranks.py`
-- The competition metric's denominator is `std(daily_PnL)`. If raw
-  regression predictions have noisy magnitudes day-to-day, the
-  denominator inflates. **Rank-based confidence**:
-  `confidence_i = 2 × within-day rank_pct(pred_i) − 1` stabilizes the
-  magnitude distribution while preserving the directional ordering.
-- Walk-forward CV across the same 5 folds, 4 variants ablated:
+</div>
 
-  | Variant | Fold-mean Sharpe | Δ vs A |
-  |---|---|---|
-  | **A**: base features, raw confidence | +0.5148 | — |
-  | **B**: + cross-sectional rank features, raw confidence | +0.4932 | −0.022 |
-  | **C**: base features, **rank confidence** | **+0.6270** | **+0.112** |
-  | D: + rank features + rank confidence | +0.5741 | +0.059 |
+### Step 7 — Rank-confidence remap
+
+<div align="justify">
+
+The competition metric's denominator is $\sigma(\text{daily PnL})$. If raw
+regression predictions have noisy magnitudes day-to-day, the denominator
+inflates. **Rank-based confidence** stabilizes the magnitude
+distribution while preserving the directional ordering:
+
+</div>
+
+$$
+\text{confidence}_i \;=\; 2 \cdot \text{rank\_pct}_{\text{day}(i)}(\hat{y}_i) \;-\; 1
+$$
+
+<div align="justify">
+
+Walk-forward CV across the same 5 folds, 4 variants ablated:
+
+</div>
+
+<div align="center">
+
+| Variant | Fold-mean Sharpe | Δ vs A |
+|:---|:---:|:---:|
+| **A**: base features, raw confidence                       | +0.5148    | —          |
+| **B**: + cross-sectional rank features, raw confidence     | +0.4932    | −0.022     |
+| **C**: base features, **rank confidence**                  | **+0.6270** | **+0.112** |
+| **D**: + rank features + rank confidence                   | +0.5741    | +0.059     |
+
+</div>
+
+<div align="justify">
 
 - Cross-sectional rank features (20 added columns) did not help and
   slightly hurt the combined variant — at the step-5 hyperparameters,
@@ -175,10 +269,18 @@ execution.
 - Post-hoc remap on the saved 2016 predictions (second look, no
   retraining):
 
-  | | Raw conf | Rank conf | Δ |
-  |---|---|---|---|
-  | Market + news | +0.3928 | **+0.5169** | +0.124 |
-  | Market-only | +0.3857 | **+0.5178** | +0.132 |
+</div>
+
+<div align="center">
+
+|                | Raw conf | Rank conf | Δ |
+|:---|:---:|:---:|:---:|
+| Market + news  | +0.3928 | **+0.5169** | +0.124 |
+| Market-only    | +0.3857 | **+0.5178** | +0.132 |
+
+</div>
+
+<div align="justify">
 
 - The CV-predicted +0.112 uplift translated to a measured +0.13 lift OOS.
   CV held up.
@@ -186,12 +288,20 @@ execution.
   improvement comes entirely from confidence sizing, not directional
   accuracy.
 
+</div>
+
 ---
 
 ## 3. Final answer
 
-> **2016 held-out OOS competition Sharpe: +0.518**
-> (market-only LightGBM with tuned hyperparameters and rank-confidence mapping)
+<div align="center">
+
+**2016 held-out OOS competition Sharpe: +0.518**
+*(market-only LightGBM with tuned hyperparameters and rank-confidence mapping)*
+
+</div>
+
+<div align="justify">
 
 - Cleared the locked-in +0.50 success bar.
 - Beat the long-only 2016 baseline (+0.18) by **+0.34**.
@@ -199,13 +309,17 @@ execution.
   measured on five validation years never seen during the
   confidence-mapping decision.
 
+</div>
+
 ---
 
 ## 4. What we learned
 
+<div align="justify">
+
 1. **The metric drives everything.** Optimizing the competition
    Sharpe (rather than a generic classification metric) changes what the
-   model is rewarded for: confidence sizing in $[-1,+1]$ and low daily-PnL
+   model is rewarded for: confidence sizing in $[-1, +1]$ and low daily-PnL
    variance. Every downstream choice (loss function, hyperparameter
    selection, post-processing) flows from that.
 
@@ -239,6 +353,8 @@ execution.
    of +0.50 vs a CV point estimate of +0.51 was always a coin flip; the
    step-6 raw-confidence result of +0.39 reflected that uncertainty,
    not a model failure.
+
+</div>
 
 ---
 
@@ -275,6 +391,8 @@ execution.
 
 ### Data
 
+<div align="justify">
+
 The pipeline expects two CSV files at the project root, both from the
 **Two Sigma: Using News to Predict Stock Movements** Kaggle competition:
 
@@ -291,6 +409,8 @@ or the same extracted CSVs to reproduce.
 Drop both files at the project root before running the pipeline. They
 are listed in `.gitignore` and never committed.
 
+</div>
+
 ### Dependencies (Python 3.10+)
 
 ```
@@ -306,6 +426,7 @@ brew install libomp && brew link --force libomp
 ### Run
 
 Steps in order from the project root:
+
 ```
 python3 pipeline/01_convert_to_parquet.py     # ~30s
 python3 pipeline/metric.py                     # ~5s, runs unit tests + probe
@@ -317,12 +438,18 @@ python3 pipeline/06_test.py                    # ~15s
 python3 pipeline/07_ranks.py                   # ~1 min
 ```
 
+<div align="justify">
+
 All scripts emit `[WARN]` lines for any drop, coercion, or fallback.
 Total wall time end-to-end: ~20 min, dominated by the Optuna tuning.
+
+</div>
 
 ---
 
 ## 7. Honest limitations
+
+<div align="justify">
 
 1. **Second look at 2016.** The rank-confidence finding was implemented
    *after* seeing the step-6 raw-confidence result of +0.39. Strict OOS
@@ -357,17 +484,21 @@ Total wall time end-to-end: ~20 min, dominated by the Optuna tuning.
    performance. A re-tune over the rank-augmented feature set might
    rescue them. Not attempted.
 
+</div>
+
 ---
 
 ## 8. Next steps
 
+<div align="justify">
+
 In rough priority by likely magnitude of improvement:
 
 1. **Lagged news with exponential decay.** Aggregate news over a
-   τ ≈ 3-day exponential window before joining. Most likely to recover
-   real news signal that same-day aggregation misses.
+   $\tau \approx 3$-day exponential window before joining. Most likely to
+   recover real news signal that same-day aggregation misses.
 2. **Detrend price features.** Replace raw `close`/`open` with
-   `close / rolling_mean(close, 252)` to neutralize cross-year drift.
+   $\text{close} \,/\, \text{rolling\_mean}(\text{close}, 252)$ to neutralize cross-year drift.
 3. **Re-tune over rank-augmented feature set.** Step-7's rank features
    may help if hyperparameters are jointly optimized with them.
 4. **Ensemble with CatBoost.** Mean of LightGBM + CatBoost predictions,
@@ -380,3 +511,5 @@ In rough priority by likely magnitude of improvement:
 
 Each requires a fresh held-out year to evaluate without further test-set
 contamination. The 2016 set is now spent.
+
+</div>
